@@ -1,6 +1,6 @@
-package org.jetbrains.plugins.template.services
+package com.github.cristiancom.grailsplugin.services
 
-import org.jetbrains.plugins.template.MyBundle
+import com.github.cristiancom.grailsplugin.MyBundle
 
 class MyApplicationService {
 
