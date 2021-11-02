@@ -3,9 +3,21 @@ package com.github.cristiancom.grailsplugin
 import com.intellij.codeInsight.completion.CompletionParameters
 import com.intellij.codeInsight.completion.CompletionProvider
 import com.intellij.codeInsight.completion.CompletionResultSet
+import com.intellij.codeInsight.completion.util.MethodParenthesesHandler
+import com.intellij.codeInsight.lookup.LookupElement
+import com.intellij.codeInsight.lookup.LookupElementBuilder
+import com.intellij.psi.*
+import com.intellij.psi.search.GlobalSearchScope
+import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.util.ProcessingContext
+import icons.JetgroovyIcons
+import org.jetbrains.annotations.NotNull
+import org.jetbrains.annotations.Nullable
+import org.jetbrains.plugins.groovy.lang.completion.GroovyCompletionUtil
 import org.jetbrains.plugins.groovy.lang.psi.api.statements.expressions.GrReferenceExpression
 import org.jetbrains.plugins.groovy.lang.psi.impl.statements.expressions.GrThisReferenceResolver
+import org.jetbrains.plugins.groovy.lang.psi.impl.synthetic.GrLightMethodBuilder
+import java.lang.reflect.Modifier
 
 class DomainClassCompletionProvider : CompletionProvider<CompletionParameters>() {
 
@@ -14,44 +26,63 @@ class DomainClassCompletionProvider : CompletionProvider<CompletionParameters>()
         context: ProcessingContext,
         result: CompletionResultSet
     ) {
-
-        val parent = parameters.position.parent
+        val parent: PsiElement = parameters.position.parent
         if (parent is GrReferenceExpression) {
-            val cd = GrailsPsiUtil.resolveReference(parent as GrReferenceExpression)
-            if (cd) {
-                if (GrailsClassHelper.hasMapping(cd)) {
-                    if (GrailsClassHelper.inMapping(cd, parent)) {
-                        GrailsDomainClassApi.MappingMethods.each { methodName, methodParams ->
-                            def m = GrailsMethodUtil.createMethod(cd, methodName, Void.name)
-                            methodParams.each { argName, argType ->
-                                m.addParameter(argName, argType)
-                            }
+            val cd = resolveReference(parent)
+            if (cd != null) {
+                if (hasMapping(cd)) {
+                    if (inMapping(cd, parent)) {
+                            val m = createMethod(cd, "hellobebe", "void")
+                                m.addParameter("untest", "String")
                             result.addElement(methodLookupElement(m))
-                        }
-                    }
-                    boolean isClass = ResolveUtil.resolvesToClass(parent.firstChild)
-                    if (isClass) {
-                        GrailsDomainClassApi.staticMethods(cd).each { methodName, methodVariants ->
-                            methodVariants.each { result.addElement(methodLookupElement(it)) }
-                        }
                     }
                 }
             }
         }
     }
 
-    fun resolveReference(expression: GrReferenceExpression) {
-        val thisResolved = GrThisReferenceResolver.resolveThisExpression(expression)
-        val resolvedClass = thisResolved?.elementAt(0)?.element
-
-        if (resolvedClass == null) {
-            val qualifier = expression.qualifierExpression
-                    PsiType qualifierType = GroovyCompletionUtil.getQualifierType(qualifier)
-            if (qualifierType instanceof PsiClassType) {
-                resolvedClass = ((PsiClassType) qualifierType)?.resolve()
-            }
+    private fun methodLookupElement(method: PsiMethod): LookupElement {
+        var mb = LookupElementBuilder.createWithSmartPointer(method.name, method).
+        withTypeText(method.getReturnType()?.getPresentableText())
+        if (method is GrLightMethodBuilder) {
+            mb = mb.withTailText("vamos")
         }
-        return resolvedClass
+        mb = mb.appendTailText(" via grails", true).
+        withBoldness(true).
+        withCaseSensitivity(true).
+        withIcon(JetgroovyIcons.Groovy.Method).
+        withInsertHandler(MethodParenthesesHandler(method, false))
+        return mb
+    }
+
+    private fun inMapping(clazz: PsiClass, element: PsiElement): @NotNull Boolean {
+        val field: @Nullable PsiField? = clazz.findFieldByName("mapping", false)
+        return PsiTreeUtil.isAncestor(field, element, true)
+    }
+
+    private fun hasMapping(clazz: PsiClass): @NotNull Boolean {
+        val field: @Nullable PsiField? = clazz.findFieldByName("mapping", false)
+        return field != null && field.hasModifierProperty("static")
+    }
+
+    private fun createMethod(clazz:PsiClass, methodName: String, returnType: String): GrLightMethodBuilder {
+        val mb = GrLightMethodBuilder(clazz.manager, methodName)
+        mb.setModifiers(Modifier.PUBLIC)
+        mb.setReturnType(returnType, GlobalSearchScope.allScope(clazz.getProject()))
+        return mb
+    }
+
+    private fun resolveReference(expression: GrReferenceExpression): @Nullable PsiClass? {
+        val thisResolved = GrThisReferenceResolver.resolveThisExpression(expression)
+
+        val qualifier = expression.qualifierExpression
+
+        val qualifierType = GroovyCompletionUtil.getQualifierType(qualifier)
+        if (qualifierType is PsiClassType) {
+            return qualifierType.resolve()
+        }
+
+        return null
     }
 
 }

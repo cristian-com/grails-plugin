@@ -6,15 +6,13 @@
 
     <depends>com.intellij.modules.platform</depends>
     <depends>org.intellij.groovy</depends>
-    <depends>org.intellij.java</depends>
 
     <extensions defaultExtensionNs="com.intellij">
         <applicationService serviceImplementation="com.github.cristiancom.grailsplugin.services.MyApplicationService"/>
         <projectService serviceImplementation="com.github.cristiancom.grailsplugin.services.MyProjectService"/>
         <completion.contributor language="Groovy"
-                                implementationClass="eu.espro.ideagrails.GrailsCompletionContributor"
+                                implementationClass="com.github.cristiancom.grailsplugin.GroovyCompletionContributor"
                                 order="before groovyBasic"/>
-        <psi.referenceContributor implementation="eu.espro.ideagrails.GrailsReferenceContributor"/>
     </extensions>
 
     <applicationListeners>
